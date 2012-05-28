@@ -490,6 +490,18 @@ static void conn_cleanup(conn *c) {
         }
     }
 
+    conn *cc = c->thread->active_conn;
+    if (c == cc) {
+        c->thread->active_conn = c->next;
+    } else {
+        while (NULL != cc && cc->next != c) {
+            cc = cc->next;
+        }
+        if (NULL != cc) {
+            cc->next = c->next;
+        }
+    }
+
     if (c->write_and_free) {
         free(c->write_and_free);
         c->write_and_free = 0;

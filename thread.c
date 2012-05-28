@@ -321,16 +321,10 @@ static void thread_libevent_process(int fd, short which, void *arg) {
             /* kick the oldest connection */
             conn *c = me->active_conn;
             if (NULL != c) {
-                if (NULL != c->next) {
-                    while (NULL != c->next->next) {
-                        c = c->next;
-                    }
-                    conn_close(c->next);
-                    c->next = NULL;
-                } else {
-                    conn_close(c);
-                    me->active_conn = NULL;
+                while (NULL != c->next) {
+                    c = c->next;
                 }
+                conn_close(c);
             }
             
             cqi_free(item);
