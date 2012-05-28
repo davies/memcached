@@ -480,7 +480,12 @@ void do_item_stats_sizes(ADD_STAT add_stats, void *c) {
 }
 
 /** wrapper around assoc_find which does the lazy expiration logic */
+item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const bool check_exp);
 item *do_item_get(const char *key, const size_t nkey, const uint32_t hv) {
+    return _do_item_get(key, nkey, hv, 1);
+}
+
+item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const bool check_exp) {
     mutex_lock(&cache_lock);
     item *it = assoc_find(key, nkey, hv);
     if (it != NULL) {
@@ -516,7 +521,7 @@ item *do_item_get(const char *key, const size_t nkey, const uint32_t hv) {
             if (was_found) {
                 fprintf(stderr, " -nuked by flush");
             }
-        } else if (it->exptime != 0 && it->exptime <= current_time) {
+        } else if (check_exp && it->exptime != 0 && it->exptime <= current_time) {
             do_item_unlink(it, hv);
             do_item_remove(it);
             it = NULL;
@@ -537,7 +542,7 @@ item *do_item_get(const char *key, const size_t nkey, const uint32_t hv) {
 
 item *do_item_touch(const char *key, size_t nkey, uint32_t exptime,
                     const uint32_t hv) {
-    item *it = do_item_get(key, nkey, hv);
+    item *it = _do_item_get(key, nkey, hv, 0);
     if (it != NULL) {
         it->exptime = exptime;
     }
