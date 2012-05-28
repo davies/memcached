@@ -84,7 +84,6 @@ static void settings_init(void);
 
 /* event handling, network IO */
 static void event_handler(const int fd, const short which, void *arg);
-static void conn_close(conn *c);
 static void conn_init(void);
 static bool update_event(conn *c, const int new_flags);
 static void complete_nread(conn *c);
@@ -497,7 +496,7 @@ void conn_free(conn *c) {
     }
 }
 
-static void conn_close(conn *c) {
+void conn_close(conn *c) {
     assert(c != NULL);
 
     /* delete the event, the socket and the conn */
@@ -3417,6 +3416,7 @@ static enum transmit_result transmit(conn *c) {
 static void drive_machine(conn *c) {
     bool stop = false;
     int sfd, flags = 1;
+    unsigned int curr_conns = 0;
     socklen_t addrlen;
     struct sockaddr_storage addr;
     int nreqs = settings.reqs_per_event;
@@ -3437,6 +3437,7 @@ static void drive_machine(conn *c) {
                     if (settings.verbose > 0)
                         fprintf(stderr, "Too many open connections\n");
                     accept_new_conns(false);
+                    dispatch_conn_new(-1, 0, 0, 0, 0); /* kick old connection */
                     stop = true;
                 } else {
                     perror("accept()");
@@ -3444,6 +3445,7 @@ static void drive_machine(conn *c) {
                 }
                 break;
             }
+            
             if ((flags = fcntl(sfd, F_GETFL, 0)) < 0 ||
                 fcntl(sfd, F_SETFL, flags | O_NONBLOCK) < 0) {
                 perror("setting O_NONBLOCK");
@@ -3451,8 +3453,26 @@ static void drive_machine(conn *c) {
                 break;
             }
 
-            dispatch_conn_new(sfd, conn_new_cmd, EV_READ | EV_PERSIST,
+            STATS_LOCK();
+            curr_conns = stats.curr_conns + stats.reserved_fds;
+            STATS_UNLOCK();
+
+            if (curr_conns >= settings.maxconns - 1) {
+                str = "ERROR Too many open connections\r\n";
+                res = write(sfd, str, strlen(str));
+                close(sfd);
+                STATS_LOCK();
+                stats.rejected_conns++;
+                STATS_UNLOCK();
+            } else {
+                dispatch_conn_new(sfd, conn_new_cmd, EV_READ | EV_PERSIST,
                                      DATA_BUFFER_SIZE, tcp_transport);
+            }
+            
+            if (curr_conns >= settings.maxconns - 10) {
+                dispatch_conn_new(-1, 0, 0, 0, 0); /* kick old connection */
+            }
+
             stop = true;
             break;
 

@@ -213,6 +213,8 @@ static void setup_thread(LIBEVENT_THREAD *me) {
     }
     cq_init(me->new_conn_queue);
 
+    me->active_conn = NULL;
+
     if (pthread_mutex_init(&me->stats.mutex, NULL) != 0) {
         perror("Failed to initialize mutex");
         exit(EXIT_FAILURE);
@@ -263,6 +265,27 @@ static void thread_libevent_process(int fd, short which, void *arg) {
     item = cq_pop(me->new_conn_queue);
 
     if (NULL != item) {
+        if (item->sfd == -1) {
+            /* kick the oldest connection */
+            conn *c = me->active_conn;
+            if (NULL != c) {
+                if (NULL != c->next) {
+                    while (NULL != c->next->next) {
+                        c = c->next;
+                    }
+                    conn_close(c->next);
+                    c->next = NULL;
+                } else {
+                    conn_close(c);
+                    me->active_conn = NULL;
+                }
+            }
+            
+            cqi_free(item);
+            return ;
+        }
+
+
         conn *c = conn_new(item->sfd, item->init_state, item->event_flags,
                            item->read_buffer_size, item->transport, me->base);
         if (c == NULL) {
@@ -278,6 +301,8 @@ static void thread_libevent_process(int fd, short which, void *arg) {
             }
         } else {
             c->thread = me;
+            c->next = me->active_conn;
+            me->active_conn = c;
         }
         cqi_free(item);
     }
