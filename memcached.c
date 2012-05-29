@@ -4094,6 +4094,8 @@ void event_handler(const int fd, const short which, void *arg) {
 
     drive_machine(c);
 
+    c->last_event_time = current_time;
+
     /* wait for next event */
     return;
 }
