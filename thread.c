@@ -272,6 +272,10 @@ static void thread_libevent_process(int fd, short which, void *arg) {
                 while (NULL != c->next) {
                     c = c->next;
                 }
+                if (settings.verbose > 0) {
+                    fprintf(stderr, "kick old connection %d\n", c->sfd);
+                }
+                c->state = conn_closing;
                 conn_close(c);
             }
             
@@ -295,8 +299,10 @@ static void thread_libevent_process(int fd, short which, void *arg) {
             }
         } else {
             c->thread = me;
-            c->next = me->active_conn;
-            me->active_conn = c;
+            if (item->init_state == conn_new_cmd) {
+                c->next = me->active_conn;
+                me->active_conn = c;
+            }
         }
         cqi_free(item);
     }
