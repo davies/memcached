@@ -736,6 +736,9 @@ void thread_init(int nthreads, struct event_base *main_base) {
     dispatcher_thread.base = main_base;
     dispatcher_thread.thread_id = pthread_self();
     
+    /* 3 for console, 3 for libevent base in master thread */ 
+    stats.reserved_fds = 3 + 3;
+
     for (i = 0; i < nthreads; i++) {
         int fds[2];
         if (pipe(fds)) {
