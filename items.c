@@ -480,12 +480,7 @@ void do_item_stats_sizes(ADD_STAT add_stats, void *c) {
 }
 
 /** wrapper around assoc_find which does the lazy expiration logic */
-item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const bool check_exp);
 item *do_item_get(const char *key, const size_t nkey, const uint32_t hv) {
-    return _do_item_get(key, nkey, hv, 1);
-}
-
-item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const bool check_exp) {
     mutex_lock(&cache_lock);
     item *it = assoc_find(key, nkey, hv);
     if (it != NULL) {
@@ -521,13 +516,18 @@ item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const 
             if (was_found) {
                 fprintf(stderr, " -nuked by flush");
             }
-        } else if (check_exp && it->exptime != 0 && it->exptime <= current_time) {
-            do_item_unlink(it, hv);
-            do_item_remove(it);
-            it = NULL;
-            if (was_found) {
-                fprintf(stderr, " -nuked by expire");
+        } else if (it->exptime != 0 && it->exptime <= current_time) {
+            if (it->exptime + 10 < current_time) {
+                do_item_unlink(it, hv);
+                do_item_remove(it);
+                if (was_found) {
+                    fprintf(stderr, " -nuked by expire");
+                }
+            } else {
+                /* re-active just expired items, to anti miss-storm */
+                it->exptime = current_time + 10;
             }
+            it = NULL;
         } else {
             it->it_flags |= ITEM_FETCHED;
             DEBUG_REFCNT(it, '+');
@@ -542,7 +542,7 @@ item *_do_item_get(const char *key, const size_t nkey, const uint32_t hv, const 
 
 item *do_item_touch(const char *key, size_t nkey, uint32_t exptime,
                     const uint32_t hv) {
-    item *it = _do_item_get(key, nkey, hv, 0);
+    item *it = do_item_get(key, nkey, hv);
     if (it != NULL) {
         it->exptime = exptime;
     }
