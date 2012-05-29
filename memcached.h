@@ -76,6 +76,9 @@
     harvesting it on a low memory condition. */
 #define TAIL_REPAIR_TIME (3 * 3600)
 
+/* kick idle connection when near maxconns */
+#define MIN_CONNECTION_IDLE_TIME 10
+
 /* warning: don't use these macros with a function, as it evals its arg twice */
 #define ITEM_get_cas(i) ((uint64_t)(((i)->it_flags & ITEM_CAS) ? \
                                     *(uint64_t*)&((i)->end[0]) : 0x0))
@@ -338,6 +341,7 @@ struct conn {
     struct event event;
     short  ev_flags;
     short  which;   /** which events were just triggered */
+    rel_time_t last_event_time;
 
     char   *rbuf;   /** buffer to read commands into */
     char   *rcurr;  /** but if we parsed some already, this is where we stopped */

@@ -257,6 +257,7 @@ static void thread_libevent_process(int fd, short which, void *arg) {
     LIBEVENT_THREAD *me = arg;
     CQ_ITEM *item;
     char buf[1];
+    rel_time_t min_et;
 
     if (read(fd, buf, 1) != 1)
         if (settings.verbose > 0)
@@ -268,15 +269,18 @@ static void thread_libevent_process(int fd, short which, void *arg) {
         if (item->sfd == -1) {
             /* kick the oldest connection */
             conn *c = me->active_conn;
+            min_et = current_time - MIN_CONNECTION_IDLE_TIME; /* idle 10 secs */
             if (NULL != c) {
-                while (NULL != c->next) {
+                while (NULL != c->next && c->last_event_time > min_et) {
                     c = c->next;
                 }
                 if (settings.verbose > 0) {
                     fprintf(stderr, "kick old connection %d\n", c->sfd);
                 }
-                c->state = conn_closing;
-                conn_close(c);
+                if (c->last_event_time > min_et) {
+                    c->state = conn_closing;
+                    conn_close(c);
+                }
             }
             
             cqi_free(item);
