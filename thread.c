@@ -326,10 +326,10 @@ static void thread_libevent_process(int fd, short which, void *arg) {
                 while (NULL != c->next && c->last_event_time > min_et) {
                     c = c->next;
                 }
-                if (settings.verbose > 0) {
-                    fprintf(stderr, "kick old connection %d\n", c->sfd);
-                }
-                if (c->last_event_time > min_et) {
+                if (c->last_event_time <= min_et) {
+                    if (settings.verbose > 0) {
+                        fprintf(stderr, "kick old connection %d\n", c->sfd);
+                    }
                     c->state = conn_closing;
                     conn_close(c);
                 }
@@ -735,7 +735,7 @@ void thread_init(int nthreads, struct event_base *main_base) {
 
     dispatcher_thread.base = main_base;
     dispatcher_thread.thread_id = pthread_self();
-
+    
     for (i = 0; i < nthreads; i++) {
         int fds[2];
         if (pipe(fds)) {
