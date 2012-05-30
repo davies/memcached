@@ -3428,7 +3428,6 @@ static enum transmit_result transmit(conn *c) {
 static void drive_machine(conn *c) {
     bool stop = false;
     int sfd, flags = 1;
-    unsigned int curr_conns = 0;
     socklen_t addrlen;
     struct sockaddr_storage addr;
     int nreqs = settings.reqs_per_event;
@@ -3465,26 +3464,9 @@ static void drive_machine(conn *c) {
                 break;
             }
 
-            STATS_LOCK();
-            curr_conns = stats.curr_conns + stats.reserved_fds;
-            STATS_UNLOCK();
-
-            if (curr_conns >= settings.maxconns - 1) {
-                str = "ERROR Too many open connections\r\n";
-                res = write(sfd, str, strlen(str));
-                close(sfd);
-                STATS_LOCK();
-                stats.rejected_conns++;
-                STATS_UNLOCK();
-            } else {
-                dispatch_conn_new(sfd, conn_new_cmd, EV_READ | EV_PERSIST,
+            dispatch_conn_new(sfd, conn_new_cmd, EV_READ | EV_PERSIST,
                                      DATA_BUFFER_SIZE, tcp_transport);
-            }
             
-            if (curr_conns >= settings.maxconns - 10) {
-                dispatch_conn_new(-1, 0, 0, 0, 0); /* kick old connection */
-            }
-
             stop = true;
             break;
 
