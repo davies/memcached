@@ -487,7 +487,13 @@ item *do_item_get(const char *key, const size_t nkey) {
     }
 
     if (it != NULL && it->exptime != 0 && it->exptime <= current_time) {
-        do_item_unlink(it);           /* MTSAFE - cache_lock held */
+        /* re-active just expired items to anti miss-storm */
+        if (it->exptime + 10 > current_time) {
+            it->exptime += 10;
+        } else {
+            do_item_unlink(it);           /* MTSAFE - cache_lock held */
+        }
+        
         it = NULL;
     }
 
