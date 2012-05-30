@@ -634,7 +634,9 @@ void thread_init(int nthreads, struct event_base *main_base) {
 
     dispatcher_thread.base = main_base;
     dispatcher_thread.thread_id = pthread_self();
-    
+
+    stats.reserved_fds = 3 + 3;
+
     for (i = 0; i < nthreads; i++) {
         int fds[2];
         if (pipe(fds)) {
@@ -644,6 +646,7 @@ void thread_init(int nthreads, struct event_base *main_base) {
 
         threads[i].notify_receive_fd = fds[0];
         threads[i].notify_send_fd = fds[1];
+        stats.reserved_fds += 5;
 
         setup_thread(&threads[i]);
     }

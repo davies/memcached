@@ -149,7 +149,7 @@ static rel_time_t realtime(const time_t exptime) {
 static void stats_init(void) {
     stats.curr_items = stats.total_items = stats.curr_conns = stats.total_conns = stats.conn_structs = 0;
     stats.get_cmds = stats.set_cmds = stats.get_hits = stats.get_misses = stats.evictions = stats.reclaimed = 0;
-    stats.curr_bytes = stats.listen_disabled_num = 0;
+    stats.curr_bytes = stats.listen_disabled_num = stats.reserved_fds = stats.rejected_conns = 0;
     stats.accepting_conns = true; /* assuming we start in this state. */
 
     /* make the time we started always be 2 seconds before we really
@@ -166,6 +166,7 @@ static void stats_reset(void) {
     stats.evictions = 0;
     stats.reclaimed = 0;
     stats.listen_disabled_num = 0;
+    stats.rejected_conns = 0;
     stats_prefix_clear();
     STATS_UNLOCK();
     threadlocal_stats_reset();
@@ -2420,6 +2421,8 @@ static void server_stats(ADD_STAT add_stats, conn *c) {
     APPEND_STAT("limit_maxbytes", "%llu", (unsigned long long)settings.maxbytes);
     APPEND_STAT("accepting_conns", "%u", stats.accepting_conns);
     APPEND_STAT("listen_disabled_num", "%llu", (unsigned long long)stats.listen_disabled_num);
+    APPEND_STAT("reserved_fds", "%llu", (unsigned long long)stats.reserved_fds);
+    APPEND_STAT("rejected_conns", "%llu", (unsigned long long)stats.rejected_conns);
     APPEND_STAT("threads", "%d", settings.num_threads);
     APPEND_STAT("conn_yields", "%llu", (unsigned long long)thread_stats.conn_yields);
     STATS_UNLOCK();
@@ -3433,6 +3436,7 @@ static void drive_machine(conn *c) {
     struct sockaddr_storage addr;
     int nreqs = settings.reqs_per_event;
     int res;
+    char *str;
 
     assert(c != NULL);
 

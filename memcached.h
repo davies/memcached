@@ -247,6 +247,8 @@ struct stats {
     time_t        started;          /* when the process was started */
     bool          accepting_conns;  /* whether we are currently accepting */
     uint64_t      listen_disabled_num;
+    uint64_t      reserved_fds;
+    uint64_t      rejected_conns;
 };
 
 #define MAX_VERBOSITY_LEVEL 2
