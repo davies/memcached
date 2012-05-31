@@ -375,6 +375,14 @@ item *item_get(const char *key, const size_t nkey) {
     return it;
 }
 
+item *item_touch(const char *key, size_t nkey, uint32_t exptime) {
+    item *it;
+    pthread_mutex_lock(&cache_lock);
+    it = do_item_touch(key, nkey, exptime);
+    pthread_mutex_unlock(&cache_lock);
+    return it;
+}
+
 /*
  * Links an item into the LRU and hashtable.
  */
