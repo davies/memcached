@@ -2403,6 +2403,7 @@ static void server_stats(ADD_STAT add_stats, conn *c) {
     APPEND_STAT("cmd_get", "%llu", (unsigned long long)thread_stats.get_cmds);
     APPEND_STAT("cmd_set", "%llu", (unsigned long long)slab_stats.set_cmds);
     APPEND_STAT("cmd_flush", "%llu", (unsigned long long)thread_stats.flush_cmds);
+    APPEND_STAT("cmd_touch", "%llu", (unsigned long long)thread_stats.touch_cmds);
     APPEND_STAT("get_hits", "%llu", (unsigned long long)slab_stats.get_hits);
     APPEND_STAT("get_misses", "%llu", (unsigned long long)thread_stats.get_misses);
     APPEND_STAT("delete_misses", "%llu", (unsigned long long)thread_stats.delete_misses);
@@ -2414,6 +2415,8 @@ static void server_stats(ADD_STAT add_stats, conn *c) {
     APPEND_STAT("cas_misses", "%llu", (unsigned long long)thread_stats.cas_misses);
     APPEND_STAT("cas_hits", "%llu", (unsigned long long)slab_stats.cas_hits);
     APPEND_STAT("cas_badval", "%llu", (unsigned long long)slab_stats.cas_badval);
+    APPEND_STAT("touch_hits", "%llu", (unsigned long long)slab_stats.touch_hits);
+    APPEND_STAT("touch_misses", "%llu", (unsigned long long)thread_stats.touch_misses);
     APPEND_STAT("auth_cmds", "%llu", (unsigned long long)thread_stats.auth_cmds);
     APPEND_STAT("auth_errors", "%llu", (unsigned long long)thread_stats.auth_errors);
     APPEND_STAT("bytes_read", "%llu", (unsigned long long)thread_stats.bytes_read);
@@ -2796,18 +2799,18 @@ static void process_touch_command(conn *c, token_t *tokens, const size_t ntokens
 
     it = item_touch(key, nkey, realtime(exptime_int));
     if (it) {
-        //pthread_mutex_lock(&c->thread->stats.mutex);
-        //c->thread->stats.touch_cmds++;
-        //c->thread->stats.slab_stats[it->slabs_clsid].touch_hits++;
-        //pthread_mutex_unlock(&c->thread->stats.mutex);
+        pthread_mutex_lock(&c->thread->stats.mutex);
+        c->thread->stats.touch_cmds++;
+        c->thread->stats.slab_stats[it->slabs_clsid].touch_hits++;
+        pthread_mutex_unlock(&c->thread->stats.mutex);
 
         out_string(c, "TOUCHED");
         item_remove(it);
     } else {
-        //pthread_mutex_lock(&c->thread->stats.mutex);
-        //c->thread->stats.touch_cmds++;
-        //c->thread->stats.touch_misses++;
-        //pthread_mutex_unlock(&c->thread->stats.mutex);
+        pthread_mutex_lock(&c->thread->stats.mutex);
+        c->thread->stats.touch_cmds++;
+        c->thread->stats.touch_misses++;
+        pthread_mutex_unlock(&c->thread->stats.mutex);
 
         out_string(c, "NOT_FOUND");
     }

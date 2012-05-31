@@ -200,6 +200,7 @@ typedef unsigned int rel_time_t;
 struct slab_stats {
     uint64_t  set_cmds;
     uint64_t  get_hits;
+    uint64_t  touch_hits;
     uint64_t  delete_hits;
     uint64_t  cas_hits;
     uint64_t  cas_badval;
@@ -218,6 +219,8 @@ struct thread_stats {
     uint64_t          incr_misses;
     uint64_t          decr_misses;
     uint64_t          cas_misses;
+    uint64_t          touch_cmds;
+    uint64_t          touch_misses;
     uint64_t          bytes_read;
     uint64_t          bytes_written;
     uint64_t          flush_cmds;
