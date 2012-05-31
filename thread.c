@@ -375,10 +375,16 @@ item *item_get(const char *key, const size_t nkey) {
     return it;
 }
 
+/*
+ * touck a item, update the exptime
+ */
 item *item_touch(const char *key, size_t nkey, uint32_t exptime) {
     item *it;
     pthread_mutex_lock(&cache_lock);
-    it = do_item_touch(key, nkey, exptime);
+    it = do_item_get(key, nkey);
+    if (it != NULL) {
+        it->exptime = exptime;
+    }
     pthread_mutex_unlock(&cache_lock);
     return it;
 }
