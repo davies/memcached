@@ -370,7 +370,7 @@ item *item_alloc(char *key, size_t nkey, int flags, rel_time_t exptime, int nbyt
 item *item_get(const char *key, const size_t nkey) {
     item *it;
     pthread_mutex_lock(&cache_lock);
-    it = do_item_get(key, nkey);
+    it = do_item_get_expand(key, nkey);
     pthread_mutex_unlock(&cache_lock);
     return it;
 }

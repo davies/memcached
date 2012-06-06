@@ -507,6 +507,58 @@ item *do_item_get(const char *key, const size_t nkey) {
     return it;
 }
 
+/** wrapper around assoc_find which does the lazy expiration logic 
+ * expand the expire time to anti miss-storm.
+ */
+item *do_item_get_expand(const char *key, const size_t nkey) {
+    item *it = assoc_find(key, nkey);
+    int was_found = 0;
+
+    if (settings.verbose > 2) {
+        if (it == NULL) {
+            fprintf(stderr, "> NOT FOUND %s", key);
+        } else {
+            fprintf(stderr, "> FOUND KEY %s", ITEM_key(it));
+            was_found++;
+        }
+    }
+
+    if (it != NULL && settings.oldest_live != 0 && settings.oldest_live <= current_time &&
+        it->time <= settings.oldest_live) {
+        do_item_unlink(it);           /* MTSAFE - cache_lock held */
+        it = NULL;
+    }
+
+    if (it == NULL && was_found) {
+        fprintf(stderr, " -nuked by flush");
+        was_found--;
+    }
+
+    if (it != NULL && it->exptime != 0 && it->exptime <= current_time) {
+        if (it->exptime == current_time) {
+            it->exptime += 3;
+        } else {
+            do_item_unlink(it);           /* MTSAFE - cache_lock held */
+        }
+        it = NULL;
+    }
+
+    if (it == NULL && was_found) {
+        fprintf(stderr, " -nuked by expire");
+        was_found--;
+    }
+
+    if (it != NULL) {
+        it->refcount++;
+        DEBUG_REFCNT(it, '+');
+    }
+
+    if (settings.verbose > 2)
+        fprintf(stderr, "\n");
+
+    return it;
+}
+
 /** returns an item whether or not it's expired. */
 item *do_item_get_nocheck(const char *key, const size_t nkey) {
     item *it = assoc_find(key, nkey);
